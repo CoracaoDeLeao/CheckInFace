@@ -1,0 +1,32 @@
+[project]
+name = "checkinface"
+version = "0.1.0"
+description = "An application for attendance control using facial recognition in an automated and efficient way."
+authors = [
+    {name = "Isaac da Cunha Carvalho",email = "isaacdecarvalho2005@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pillow (>=11.2.1,<12.0.0)",
+    "customtkinter (>=5.2.2,<6.0.0)",
+    "firebase-admin (>=6.8.0,<7.0.0)",
+    "pybase64 (>=1.4.1,<2.0.0)",
+]
+
+[tool.poetry]
+packages = [
+  {include = "checkinface", from = "src"},
+  {include = "service", from = "src"},
+  {include = "util", from = "src"}
+]
+include = [
+    "checkinface-private_key-adminsdk.json"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+start = 'checkinface.main:main'

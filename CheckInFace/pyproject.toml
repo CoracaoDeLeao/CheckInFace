@@ -12,11 +12,13 @@ dependencies = [
     "customtkinter (>=5.2.2,<6.0.0)",
     "firebase-admin (>=6.8.0,<7.0.0)",
     "pybase64 (>=1.4.1,<2.0.0)",
+    "opencv-python (>=4.11.0.86,<5.0.0.0)",
 ]
 
+# Ao criar pacotes colocar aqui
 [tool.poetry]
 packages = [
-  {include = "checkinface", from = "src"},
+  {include = "app", from = "src"},
   {include = "service", from = "src"},
   {include = "util", from = "src"}
 ]
@@ -28,5 +30,6 @@ include = [
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+# Script's para a execução
 [tool.poetry.scripts]
-start = 'checkinface.main:main'
+start = 'app.screens.home.main:main'

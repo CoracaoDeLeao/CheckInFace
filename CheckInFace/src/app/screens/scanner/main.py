@@ -1,5 +1,6 @@
 import cv2
 import customtkinter as ctk
+from tkinter import messagebox
 from customtkinter import CTkImage
 from PIL import Image
 
@@ -23,7 +24,7 @@ def JanelaWebCam():
     captura = cv2.VideoCapture(0)
 
     if not captura.isOpened():
-        ctk.messagebox.showerror(
+        messagebox.showerror(
             title="Erro",
             message="Não foi possível acessar a webcam. Verifique se está conectada."
         )

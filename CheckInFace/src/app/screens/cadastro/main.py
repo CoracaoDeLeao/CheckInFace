@@ -1,8 +1,8 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import os
-from util.base64 import image_to_base64
-from service.conexao import saveFirestore
+from src.util.base64 import image_to_base64
+from src.service.conexao.conn import saveFirestore
 
 class TelaCadastro(ctk.CTkToplevel):
     def __init__(self, parent, callback_sucesso):
@@ -128,19 +128,19 @@ class TelaCadastro(ctk.CTkToplevel):
         ra = self.ra_entry.get().strip()
         
         if not nome:
-            messagebox.showerror("Erro", "Por favor, insira o nome")
+            messagebox.showerror("Erro", "Por favor, insira o nome", parent=self)
             return False
         
         if not ra.isdigit():
-            messagebox.showerror("Erro", "RA deve conter apenas números")
+            messagebox.showerror("Erro", "RA deve conter apenas números", parent=self)
             return False
         
         if len(ra) != 14:
-            messagebox.showerror("Erro", "RA deve conter exatamente 14 dígitos")
+            messagebox.showerror("Erro", "RA deve conter exatamente 14 dígitos", parent=self)
             return False
         
         if not self.fotos_selecionadas:
-            messagebox.showerror("Erro", "Por favor, selecione pelo menos uma foto")
+            messagebox.showerror("Erro", "Por favor, selecione pelo menos uma foto", parent=self)
             return False
             
         return True
@@ -155,12 +155,15 @@ class TelaCadastro(ctk.CTkToplevel):
             ra = self.ra_entry.get().strip()
 
             saveFirestore(nome, ra, fotos)
-            self.callback_sucesso(nome, ra)
-            self.destroy()
-            messagebox.showinfo("Sucesso", "Cadastro salvo com sucesso!")
+            self.callback_sucesso()
+
+            self.limpar_campos()
+            messagebox.showinfo("Sucesso", "Cadastro salvo com sucesso!", parent=self)
+            self.focus_force()
             
         except Exception as e:
-            messagebox.showerror("Erro", f"Ocorreu um erro ao salvar: {str(e)}")
+            messagebox.showerror("Erro", f"Ocorreu um erro ao salvar: {str(e)}", parent=self)
+            self.focus_force()
 
     def limpar_campos(self):
         self.nome_entry.delete(0, "end")

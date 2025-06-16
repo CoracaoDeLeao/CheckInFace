@@ -86,15 +86,6 @@ class TelaCadastro(ctk.CTkToplevel):
         self.ra_entry.grid(row=2, column=1, pady=5, padx=15, sticky="ew")
 
     def criar_botoes(self):
-        # Botão para selecionar fotos
-        btn_anexar = ctk.CTkButton(
-            self.main_frame, 
-            text="ANEXAR FOTOS", 
-            font=("Helvetica", 14, "bold"),
-            command=self.selecionar_fotos
-        )
-        btn_anexar.grid(row=2, column=0, columnspan=2, padx=80, pady=5, sticky="ew")
-
         # Botão para abrir scan de fotos
         btn_webcam = ctk.CTkButton(
             self.main_frame,
@@ -122,26 +113,6 @@ class TelaCadastro(ctk.CTkToplevel):
             state="disabled"
         )
         self.lista_fotos.grid(row=4, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
-
-    def selecionar_fotos(self):
-        arquivos = filedialog.askopenfilenames(
-            title="Selecione as fotos",
-            filetypes=(("Arquivos de imagem", "*.jpg *.jpeg *.png *.bmp"), ("Todos os arquivos", "*.*"))
-        )
-        
-        if arquivos:
-            network = get_network()
-            for arquivo in arquivos:
-                imagem = cv2.imread(arquivo)
-
-                if imagem is not None:
-                    _, face_roi = detect_face_ssd(imagem, network)
-
-                    if face_roi is not None:
-                        self.fotos_selecionadas.append((face_roi, os.path.basename(arquivo)))
-            
-            self.atualizar_lista_fotos()
-
 
     # Webcam:
     def salvar_imagem_webcam(self, frame, face_roi, aluno): 

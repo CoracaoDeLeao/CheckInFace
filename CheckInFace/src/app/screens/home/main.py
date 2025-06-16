@@ -69,6 +69,12 @@ class AttendanceApp:
         except Exception as e:
             print(e)
 
+        ctk.CTkLabel(
+            top_frame, 
+            text='Use "q" ao utilizar a Webcam',
+            font=("Arial", 14),
+        ).grid(row=1, column=1)
+
         self.table_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         self.table_frame.pack(fill="both", expand=True, padx=0, pady=10)
 

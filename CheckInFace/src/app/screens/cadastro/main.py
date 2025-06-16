@@ -1,8 +1,16 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import os
+import cv2
+import random
 from src.util.base64 import image_to_base64
 from src.service.conexao.conn import saveFirestore
+from src.app.screens.scanner.main import JanelaWebCam
+from src.util.detect_face_ssd import detect_face_ssd
+from src.classifier.scripts.network_loader import get_network
+from src.classifier.scripts.model_loader import get_model
+from src.classifier.scripts.image_saver import save_image
+
 
 class TelaCadastro(ctk.CTkToplevel):
     def __init__(self, parent, callback_sucesso):
@@ -79,13 +87,22 @@ class TelaCadastro(ctk.CTkToplevel):
 
     def criar_botoes(self):
         # Botão para selecionar fotos
-        btn_fotos = ctk.CTkButton(
+        btn_anexar = ctk.CTkButton(
             self.main_frame, 
             text="ANEXAR FOTOS", 
             font=("Helvetica", 14, "bold"),
             command=self.selecionar_fotos
         )
-        btn_fotos.grid(row=2, column=0, columnspan=2, padx=80, pady=5, sticky="ew")
+        btn_anexar.grid(row=2, column=0, columnspan=2, padx=80, pady=5, sticky="ew")
+
+        # Botão para abrir scan de fotos
+        btn_webcam = ctk.CTkButton(
+            self.main_frame,
+            text="Escanear Webcam",
+            font=("Helvetica", 14, "bold"),
+            command=self.escanear_webcam
+        )
+        btn_webcam.grid(row=3, column=0, columnspan=2, padx=80, pady=5, sticky="ew")
         
         # Botão de salvar
         btn_salvar = ctk.CTkButton(
@@ -94,7 +111,7 @@ class TelaCadastro(ctk.CTkToplevel):
             font=("Helvetica", 14, "bold"),
             command=self.salvar_cadastro
         )
-        btn_salvar.grid(row=4, column=0, columnspan=2, padx=100, pady=5, sticky="ew")
+        btn_salvar.grid(row=5, column=0, columnspan=2, padx=100, pady=5, sticky="ew")
 
     def criar_lista_fotos(self):
         # Lista de fotos
@@ -104,7 +121,7 @@ class TelaCadastro(ctk.CTkToplevel):
             height=150, 
             state="disabled"
         )
-        self.lista_fotos.grid(row=3, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
+        self.lista_fotos.grid(row=4, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
 
     def selecionar_fotos(self):
         arquivos = filedialog.askopenfilenames(
@@ -113,14 +130,40 @@ class TelaCadastro(ctk.CTkToplevel):
         )
         
         if arquivos:
-            self.fotos_selecionadas.extend(arquivos)
+            network = get_network()
+            for arquivo in arquivos:
+                imagem = cv2.imread(arquivo)
+
+                if imagem is not None:
+                    _, face_roi = detect_face_ssd(imagem, network)
+
+                    if face_roi is not None:
+                        self.fotos_selecionadas.append((face_roi, os.path.basename(arquivo)))
+            
             self.atualizar_lista_fotos()
+
+
+    # Webcam:
+    def salvar_imagem_webcam(self, frame, face_roi, aluno): 
+        if face_roi is None:
+            return
+        
+        rnd_nome = "foto_" + str(random.randint(10**13, 10**14 - 1)) + ".jpg"
+
+        self.fotos_selecionadas.append((face_roi.copy(), rnd_nome))
+        self.atualizar_lista_fotos()
+    
+    def escanear_webcam(self): 
+        JanelaWebCam(self.salvar_imagem_webcam, show_conf=False)
+
 
     def atualizar_lista_fotos(self):
         self.lista_fotos.configure(state="normal")
         self.lista_fotos.delete("1.0", "end")
-        for foto in self.fotos_selecionadas:
-            self.lista_fotos.insert("end", os.path.basename(foto) + "\n")
+
+        for _, nome in self.fotos_selecionadas:
+            self.lista_fotos.insert("end", nome + "\n")
+
         self.lista_fotos.configure(state="disabled")
 
     def validar_campos(self):
@@ -150,14 +193,24 @@ class TelaCadastro(ctk.CTkToplevel):
             return
         
         try:
-            fotos = [image_to_base64(foto) for foto in self.fotos_selecionadas]
+            fotos = [image_to_base64(foto) for foto,_ in self.fotos_selecionadas]
             nome = self.nome_entry.get().strip()
             ra = self.ra_entry.get().strip()
 
             saveFirestore(nome, ra, fotos)
-            self.callback_sucesso()
 
+            # Atualiza modelo de treinamento
+            sample = 1
+            for foto, _ in self.fotos_selecionadas:
+                save_image(nome, ra, foto, sample)
+                sample += 1
+
+            get_model(parse=True)
+            
+            self.callback_sucesso()
             self.limpar_campos()
+
+
             messagebox.showinfo("Sucesso", "Cadastro salvo com sucesso!", parent=self)
             self.focus_force()
             

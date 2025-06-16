@@ -1,2 +1,16 @@
+# Sensivel
 *.json
 checkinface-private_key-adminsdk.json
+
+# Script somente para usos especificos
+/src/classifier/scripts/register.py
+
+# Pasta de imagens
+/src/classifier/images
+
+# Arquivos de dados e modelos
+lbph_classifier.yml
+*.pickle
+
+# Cache do Python
+__pycache__

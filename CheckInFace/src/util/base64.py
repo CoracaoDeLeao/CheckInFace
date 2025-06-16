@@ -1,9 +1,12 @@
 import base64
+import cv2
 
-def image_to_base64(image_path):
+def image_to_base64(image):
     try:
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
+        _, buffer = cv2.imencode('.jpg', image)
+        img = base64.b64encode(buffer).decode("utf-8")
+        return img
+            
     except FileNotFoundError:
         raise ValueError("Arquivo de imagem não encontrado")
 

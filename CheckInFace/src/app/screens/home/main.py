@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 
 from src.app.screens.cadastro.main import TelaCadastro
 from src.app.screens.scanner.main import JanelaWebCam
-from src.service.conexao.conn import getFirestore
+from src.service.conexao.conn import getFirestore, salvar_presenca
+from src.util.verify_images import verify_images
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
@@ -15,12 +16,20 @@ class AttendanceApp:
         self.root.geometry("900x600")
         self.root.resizable(False, False)
 
+        # Para listagem da tabela
+        self.ra_ultimo = [None]
+        self.indicador_offset = 1
+        self.table_limite = 10
+
         self.all_check_vars = []
         self.table_frame = None
         self.create_widgets()
         self.centralizar_janela()
         self.atualizar_tabela()
         self.agendar_atualizacoes()
+
+        # Verifica se imagens já existe
+        verify_images()
 
     def centralizar_janela(self):
         self.root.update_idletasks()
@@ -31,6 +40,7 @@ class AttendanceApp:
         self.root.geometry(f"{width}x{height}+{x}+{y}")
 
     def create_widgets(self):
+        # Top Frame
         top_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         top_frame.pack(side="top", fill="x", padx=20, pady=10)
 
@@ -38,6 +48,15 @@ class AttendanceApp:
         top_frame.grid_columnconfigure(1, weight=0, uniform="cols_espacadoras")
         top_frame.grid_columnconfigure(2, weight=1, uniform="cols_espacadoras")
 
+        # Bottom Frame
+        bottom_frame = ctk.CTkFrame(self.root, fg_color="transparent")
+        bottom_frame.pack(side="bottom", pady=10, anchor="center")
+        # Bottom Frame :: Grid
+        bottom_frame.grid_columnconfigure(0, weight=1, uniform="cols_espacadoras")
+        bottom_frame.grid_columnconfigure(1, weight=1, uniform="cols_espacadoras")
+        bottom_frame.grid_columnconfigure(2, weight=1, uniform="cols_espacadoras")
+
+        # Título
         ctk.CTkLabel(
             top_frame, 
             text="Controle de Frequência",
@@ -45,10 +64,15 @@ class AttendanceApp:
         ).grid(row=0, column=1)
 
         self._create_button(top_frame, "Cadastrar", self.abrir_janela_cadastro, 2, "e")
-        self._create_button(top_frame, "Scanear", JanelaWebCam, 0, "w")
+        try: 
+            self._create_button(top_frame, "Scanear", lambda: JanelaWebCam(self.registrar_presenca), 0, "w")
+        except Exception as e:
+            print(e)
 
         self.table_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         self.table_frame.pack(fill="both", expand=True, padx=0, pady=10)
+
+        self._create_table_navigator(bottom_frame)
 
         for col in range(15):
             if col % 2 == 0:
@@ -73,6 +97,50 @@ class AttendanceApp:
         )
         btn.grid(row=0, column=column, sticky=sticky)
         return btn
+
+    def _create_table_navigator(self, parent):
+        self.esquerda = ctk.CTkButton(
+            parent,
+            text="<",
+            width=30,
+            font=("Arial", 14),
+            command=self.ind_esquerda
+        )
+        self.esquerda.grid(row=0, column=0, sticky="w")
+
+        self.indicador = ctk.CTkLabel(
+            parent, 
+            text=self.indicador_offset,
+            font=("Arial", 16, "bold"),
+        )
+        self.indicador.grid(row=0, column=1)
+
+        self.direita = ctk.CTkButton(
+            parent,
+            text=">",
+            width=30,
+            font=("Arial", 14),
+            command=self.ind_direita
+        )
+        self.direita.grid(row=0, column=2, sticky="w")
+
+    def ind_esquerda(self):
+        if self.indicador_offset > 1:
+            self.indicador_offset -= 1
+
+        self.atualizar_indicador()
+        self.atualizar_tabela()
+        return
+    
+    def ind_direita(self):
+        self.indicador_offset += 1
+
+        self.atualizar_indicador()
+        self.atualizar_tabela()
+        return
+
+    def atualizar_indicador(self):
+        self.indicador.configure(text=self.indicador_offset)
 
     def criar_cabecalhos(self):
         headers = ["Aluno", "RA", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"]
@@ -175,14 +243,28 @@ class AttendanceApp:
         self.all_check_vars = []
         current_row = 2
         
-        for aluno in getFirestore():
-            self.create_row_divider(self.table_frame, current_row)
-            self.create_student_row(self.table_frame, current_row + 1, aluno['nome'], aluno['RA'])
+        ra_buffer = None        
+        index = self.indicador_offset-1
+        ra_param = self.ra_ultimo[index] if self.indicador_offset > 1 else None
 
+        alunos = getFirestore(ra_atual=ra_param, limit=self.table_limite)
+
+        for aluno in alunos:
+            nome = aluno["nome"].replace("_", " ").title()
+            self.create_row_divider(self.table_frame, current_row)
+            self.create_student_row(self.table_frame, current_row + 1, nome, aluno['RA'])
+            
             if self.all_check_vars:
                 self.marcar_presencas(self.all_check_vars[-1], aluno.get('presencas', []))
 
             current_row += 2
+
+            # Guarda último RA
+            ra_buffer = aluno['RA']
+
+        # Salva último RA para consultar depois
+        if ra_buffer not in self.ra_ultimo and ra_buffer is not None:
+            self.ra_ultimo.append(ra_buffer)
 
         self.create_row_divider(self.table_frame, current_row)
         loading.destroy()
@@ -191,12 +273,12 @@ class AttendanceApp:
         dias_presentes = set()
         data_atual = datetime.now(timezone.utc).astimezone()
         ano_atual, semana_atual, _ = data_atual.isocalendar()
-
+        
         for presenca in presencas:
             try:
-                data_local = presenca['data'].astimezone()
+                data_local = presenca.astimezone()
                 ano_presenca, semana_presenca, _ = data_local.isocalendar()
-
+                
                 if ano_presenca == ano_atual and semana_presenca == semana_atual:
                     dias_presentes.add(data_local.weekday())
             except Exception as e:
@@ -208,6 +290,15 @@ class AttendanceApp:
     def agendar_atualizacoes(self):
         self.atualizar_tabela()
         self.root.after(100000, self.agendar_atualizacoes)
+
+    def registrar_presenca(self, frame, face_roi, aluno):
+        res = salvar_presenca(aluno)
+        
+        if res:
+            self.atualizar_tabela()
+            return 'close' 
+        
+        return ''
 
 def main():
     root = ctk.CTk()
